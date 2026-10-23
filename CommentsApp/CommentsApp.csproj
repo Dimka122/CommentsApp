@@ -30,4 +30,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="9.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="CommentsApp.Infrastructure\Assets\" />
+  </ItemGroup>
+
 </Project>
