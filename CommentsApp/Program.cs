@@ -1,22 +1,56 @@
+using CommentsApp.CommentsApp.Application.Interfaces;
+using CommentsApp.CommentsApp.Application.Services;
+using CommentsApp.CommentsApp.Application.Validation;
+using CommentsApp.CommentsApp.Infrastructure.Captcha;
+using CommentsApp.CommentsApp.Infrastructure.Data;
+using CommentsApp.CommentsApp.Infrastructure.Repositories;
+using CommentsApp.CommentsApp.Infrastructure.Security;
+using CommentsApp.CommentsApp.Infrastructure.Services;
+using CommentsApp.CommentsApp.Infrastructure.Storage;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// EF Core + MSSQL
+builder.Services.AddDbContext<AppDbContext>(o =>
+    o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Слои
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IHtmlSanitizerService, HtmlSanitizerService>();
+builder.Services.AddSingleton<ICaptchaService, CaptchaService>();
+builder.Services.AddScoped<IFileStorage, FileStorage>();
+builder.Services.AddScoped<CommentService>();
+builder.Services.AddValidatorsFromAssemblyContaining<CommentCreateValidator>();
+
+// Контроллеры
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Автоматическая миграция БД при старте (удобно для Docker)
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
 }
 
-app.UseHttpsRedirection();
+app.UseDefaultFiles();   // wwwroot/index.html
+app.UseStaticFiles();
 
-app.UseAuthorization();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapControllers();
 
