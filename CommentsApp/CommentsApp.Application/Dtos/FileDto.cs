@@ -1,8 +1,10 @@
 ﻿namespace CommentsApp.CommentsApp.Application.Dtos
 {
     public record FileDto(
-    Guid Id,
+    int Id,
     string FileName,
     string MimeType,
-    long SizeBytes);
+    long Size,
+    string Url);
+
 }

@@ -1,5 +1,4 @@
-﻿using AngleSharp.Css.Dom;
-using CommentsApp.CommentsApp.Application.Interfaces;
+﻿using CommentsApp.CommentsApp.Application.Interfaces;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;

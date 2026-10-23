@@ -1,12 +1,13 @@
+using CommentsApp.Application.Interfaces;
 using CommentsApp.CommentsApp.Application.Interfaces;
 using CommentsApp.CommentsApp.Application.Services;
 using CommentsApp.CommentsApp.Application.Validation;
 using CommentsApp.CommentsApp.Infrastructure.Captcha;
 using CommentsApp.CommentsApp.Infrastructure.Data;
-using CommentsApp.CommentsApp.Infrastructure.Repositories;
 using CommentsApp.CommentsApp.Infrastructure.Security;
 using CommentsApp.CommentsApp.Infrastructure.Services;
-using CommentsApp.CommentsApp.Infrastructure.Storage;
+using CommentsApp.Infrastructure.Repositories;
+using CommentsApp.Infrastructure.Services;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
@@ -49,8 +50,11 @@ using (var scope = app.Services.CreateScope())
 app.UseDefaultFiles();   // wwwroot/index.html
 app.UseStaticFiles();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    //app.UseSwaggerUI();
+}
 
 app.MapControllers();
 

@@ -1,13 +1,13 @@
 ﻿namespace CommentsApp.CommentsApp.Application.Dtos
 {
     public record CommentDto(
-    Guid Id,
+    int Id,
     string UserName,
     string Email,
     string? Homepage,
     string Text,
     DateTime CreatedAt,
-    Guid? ParentId,
-    IEnumerable<CommentDto> Replies,
-    FileDto? File);
+    int? ParentId,
+    List<CommentDto> Replies,
+    FileDto? File=null);
 }

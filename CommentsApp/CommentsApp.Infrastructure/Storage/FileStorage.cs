@@ -1,99 +1,54 @@
-﻿using CommentsApp.CommentsApp.Application.Interfaces;
+﻿using CommentsApp.Application.Interfaces;
+using CommentsApp.CommentsApp.Application.Exceptions;
+using CommentsApp.CommentsApp.Application.Interfaces;
 using CommentsApp.CommentsApp.Domain.Entities;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Processing;
 
-namespace CommentsApp.CommentsApp.Infrastructure.Storage;
+namespace CommentsApp.Infrastructure.Services;
 
-public class FileStorage(IWebHostEnvironment env) : IFileStorage
+public class FileStorage : IFileStorage
 {
-    private static readonly Dictionary<string, string> AllowedImages = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["image/jpeg"] = ".jpg",
-        ["image/png"] = ".png",
-        ["image/gif"] = ".gif"
-    };
-    private const int MaxImageBytes = 500 * 1024;   // 500 КБ
-    private const int* 1024;     // 100 КБ
-    private const int MaxWidth = 320;
-    private const int MaxHeight = 240;
+    private readonly string _storageRoot;
 
-    public async Task<FileEntity?> SaveAsync(IFormFile? file, CancellationToken ct = default)
+    public FileStorage(IConfiguration config)
     {
-        if (file is null || file.Length == 0)
-            return null;
+        // путь из appsettings.json, напр. "FileStorage": { "Root": "uploads" }
+        _storageRoot = config["FileStorage:Root"] ?? "uploads";
 
-        var mime = file.ContentType.ToLowerInvariant();
+        if (!Directory.Exists(_storageRoot))
+            Directory.CreateDirectory(_storageRoot);
+    }
+
+    public async Task<FileEntity?> SaveAsync(IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0) return null;
+
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var isImage = ext is ".jpg" or ".jpeg" or ".png" or ".gif";
+        var maxBytes = isImage ? 5 * 1024 * 1024 : 100 * 1024;
+        if (file.Length > maxBytes) throw new FileTooLargeException(ext);
 
-        if (AllowedImages.TryGetValue(mime, out var expectedExt))
-        {
-            if (file.Length > MaxImageBytes)
-                throw new FileValidationException("Картинка больше 500 КБ");
+        // защита: разрешаем только нужные типы
+        if (!isImage && ext != ".txt") throw new UnsupportedFileTypeException(ext);
 
-            // Проверяем реальный формат по содержимому (не доверяем Content-Type)
-            using var img = await Image.LoadAsync(file.OpenReadStream(), ct);
-
-            var (newW, newH) = ResizeKeepAspect(img.Width, img.Height, MaxWidth, MaxHeight);
-            img.Mutate(x => x.Resize(newW, newH));
-
-            var storedName = $"{Guid.NewGuid():N}{expectedExt}";
-            var dir = GetDir();
-            await img.SaveAsync(Path.Combine(dir, storedName), ct);
-
-            return new FileEntity
-            {
-                FileName = file.FileName,
-                StoredName = storedName,
-                MimeType = mime,
-                Size = file.Length,
-                UploadedAt = DateTime.UtcNow
-            };
-        }
-
-        if (mime == "text/plain" && ext == ".txt")
-        {
-            if (file.Length > MaxTxtBytes)
-                throw new FileValidationException("TXT-файл больше 100 КБ");
-
-            var storedName = $"{Guid.NewGuid():N}.txt";
-            var dir = GetDir();
-            await using var stream = System.IO.File.Create(Path.Combine(dir, storedName));
+        var storedName = $"{Guid.NewGuid()}{ext}";
+        var path = Path.Combine(_storageRoot, storedName);
+        await using (var stream = File.Create(path))
             await file.CopyToAsync(stream, ct);
 
-            return new FileEntity
-            {
-                FileName = file.FileName,
-                StoredName = storedName,
-                MimeType = mime,
-                Size = file.Length,
-                UploadedAt = DateTime.UtcNow
-            };
-        }
-
-        throw new FileValidationException(
-            "Допустимы только картинки (JPG/PNG/GIF ≤500 КБ) или TXT ≤100 КБ");
+        return new FileEntity
+        {
+            FileName = file.FileName,
+            StoredName = storedName,
+            MimeType = file.ContentType,
+            Size = file.Length,
+            UploadedAt = DateTime.UtcNow
+        };
     }
 
-    public FileStream? Open(string storedName)
+    // метод для отдачи файла обратно (endpoint /api/files/{id})
+    public Stream OpenRead(string storedName)
     {
-        var path = Path.Combine(GetDir(), storedName);
-        return System.IO.File.Exists(path) ? System.IO.File.OpenRead(path) : null;
-    }
-
-    private static string GetDir() =>
-        Path.Combine(Directory.GetCurrentDirectory(), "AppData", "uploads");
-    // mkdir при первом обращении:
-    // Directory.CreateDirectory в конструкторе или здесь
-
-    private static (int W, int H) ResizeKeepAspect(int w, int h, int maxW, int maxH)
-    {
-        var scale = Math.Min((double)maxW / w, (double)maxH / h);
-        if (scale >= 1) return (w, h); // не увеличиваем
-        return ((int)Math.Round(w * scale), (int)Math.Round(h * scale));
+        var path = Path.Combine(_storageRoot, storedName);
+        return File.OpenRead(path);
     }
 }
-
-public class FileValidationException(string message) : Exception(message);
-

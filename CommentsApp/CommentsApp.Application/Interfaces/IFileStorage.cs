@@ -1,10 +1,9 @@
 ﻿using CommentsApp.CommentsApp.Domain.Entities;
 
-namespace CommentsApp.CommentsApp.Application.Interfaces
+namespace CommentsApp.Application.Interfaces;
+
+public interface IFileStorage
 {
-    public interface IFileStorage
-    {
-        Task<FileEntity?> SaveAsync(IFormFile? file, CancellationToken ct = default);
-        FileStream? Open(string storedName);
-    }
+    Task<FileEntity?> SaveAsync(IFormFile? file, CancellationToken ct);
+    Stream OpenRead(string storedName);
 }

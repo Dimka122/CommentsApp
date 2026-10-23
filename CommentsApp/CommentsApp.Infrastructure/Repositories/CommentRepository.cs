@@ -3,7 +3,7 @@ using CommentsApp.CommentsApp.Domain.Entities;
 using CommentsApp.CommentsApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace CommentsApp.CommentsApp.Infrastructure.Repositories;
+namespace CommentsApp.Infrastructure.Repositories;
 
 public class CommentRepository(AppDbContext db) : ICommentRepository
 {
@@ -25,10 +25,10 @@ public class CommentRepository(AppDbContext db) : ICommentRepository
 
         query = (field, dir) switch
         {
-            ("UserName", "asc") => query.OrderBy(c => c.User.UserName),
-            ("UserName", "desc") => query.OrderByDescending(c => c.User.UserName),
-            ("Email", "asc") => query.OrderBy(c => c.User.Email),
-            ("Email", "desc") => query.OrderByDescending(c => c.User.Email),
+            ("UserName", "asc") => query.OrderBy(c => c.User!.UserName),
+            ("UserName", "desc") => query.OrderByDescending(c => c.User!.UserName),
+            ("Email", "asc") => query.OrderBy(c => c.User!.Email),
+            ("Email", "desc") => query.OrderByDescending(c => c.User!.Email),
             (_, "asc") => query.OrderBy(c => c.CreatedAt),
             _ => query.OrderByDescending(c => c.CreatedAt) // default LIFO
         };
@@ -52,6 +52,14 @@ public class CommentRepository(AppDbContext db) : ICommentRepository
             .OrderBy(c => c.CreatedAt) // ответы — FIFO (старые сверху)
             .ToListAsync(ct);
     }
+
+    public async Task AddAsync(Comment comment, CancellationToken ct = default)
+    {
+        await db.Comments.AddAsync(comment, ct);
+    }
+
+    public Task SaveChangesAsync(CancellationToken ct = default) =>
+        db.SaveChangesAsync(ct);
 
     private static (string Field, string Dir) Normalize(string? field, string? dir)
     {

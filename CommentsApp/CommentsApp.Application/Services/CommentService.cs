@@ -1,4 +1,5 @@
-﻿using CommentsApp.CommentsApp.Application.Dtos;
+﻿using CommentsApp.Application.Interfaces;
+using CommentsApp.CommentsApp.Application.Dtos;
 using CommentsApp.CommentsApp.Application.Interfaces;
 using CommentsApp.CommentsApp.Domain.Entities;
 using FluentValidation;
@@ -11,9 +12,9 @@ public class CommentService(
     IHtmlSanitizerService sanitizer,
     ICaptchaService captcha,
     IFileStorage storage,
-    CreateCommentValidator validator)
+    IValidator<CommentCreateDto>  validator)
 {
-    public async Task<CommentDto> CreateAsync(CreateCommentRequest req, IFormFile? file, CancellationToken ct)
+    public async Task<CommentDto> CreateAsync(CommentCreateDto req, IFormFile? file, CancellationToken ct)
     {
         // 1. Валидация DTO
         var validationResult = await validator.ValidateAsync(req, ct);
@@ -73,14 +74,18 @@ public class CommentService(
     public string Preview(string rawText) => sanitizer.Sanitize(rawText);
 
     private static CommentDto ToDto(Comment c) => new(
-        c.Id,
-        c.User.UserName,
-        c.User.Email,
-        c.User.Homepage,
-        c.Text,
-        c.CreatedAt,
-        c.File is null ? null : new FileDto(c.File.Id, c.File.FileName, $"/api/files/{c.File.Id}", c.File.MimeType),
-        []);
+        c.Id,                                  
+    c.User!.UserName,
+    c.User.Email,
+    c.User.Homepage,
+    c.Text,
+    c.CreatedAt,
+    c.ParentCommentId,                      
+    [],
+    c.File is null
+        ? null
+        : new FileDto(c.File.Id, c.File.FileName, c.File.MimeType, c.File.Size,
+                      $"/api/files/{c.File.Id}"));
 }
 
 public class InvalidCaptchaException : Exception
