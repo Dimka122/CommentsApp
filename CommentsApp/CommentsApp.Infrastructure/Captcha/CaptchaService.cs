@@ -1,9 +1,5 @@
 ﻿using CommentsApp.CommentsApp.Application.Interfaces;
-using SixLabors.Fonts;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 
@@ -14,6 +10,8 @@ public class CaptchaService : ICaptchaService
     private const int TtlMinutes = 5;
     private readonly ConcurrentDictionary<string, (string Code, DateTime Expire)> _store = new();
     // Для масштабирования выносим в Redis/кэш — сейчас in-memory для простоты.
+
+    private static readonly SKTypeface CaptchaTypeface = LoadTypeface();
 
     public CaptchaChallenge Generate()
     {
@@ -47,44 +45,71 @@ public class CaptchaService : ICaptchaService
         return new string(bytes.Select(b => alphabet[b % alphabet.Length]).ToArray());
     }
 
+    private static SKTypeface LoadTypeface()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Roboto-Bold.ttf");
+
+        if (!File.Exists(path))
+            throw new FileNotFoundException(
+                "Шрифт капчи не найден. Убедитесь, что Assets/Roboto-Bold.ttf копируется в вывод сборки.",
+                path);
+
+        return SKTypeface.FromFile(path)
+            ?? throw new InvalidOperationException($"Не удалось загрузить шрифт: {path}");
+    }
+
     private static string DrawCaptcha(string code)
     {
         const int width = 180, height = 60;
-        using var image = new Image<Rgba32>(width, height);
         var random = Random.Shared;
 
-        image.Mutate(ctx =>
+        using var surface = SKSurface.Create(new SKImageInfo(width, height));
+        var canvas = surface.Canvas;
+
+        // фон
+        canvas.Clear(new SKColor(240, 240, 245));
+
+        // шумовые линии
+        for (var i = 0; i < 6; i++)
         {
-            // фон
-            ctx.Fill(Color.FromRgb(240, 240, 245));
-
-            // шумовые линии
-            for (var i = 0; i < 6; i++)
+            using var paint = new SKPaint
             {
-                var pen = Pens.Solid(Color.FromRgb(
+                Color = new SKColor(
                     (byte)random.Next(120, 220),
                     (byte)random.Next(120, 220),
-                    (byte)random.Next(120, 220)), 1.5f);
-                ctx.DrawLine(pen,
-                    new PointF(random.Next(width), random.Next(height)),
-                    new PointF(random.Next(width), random.Next(height)));
-            }
+                    (byte)random.Next(120, 220)),
+                StrokeWidth = 1.5f,
+                IsAntialias = true
+            };
+            canvas.DrawLine(
+                random.Next(width), random.Next(height),
+                random.Next(width), random.Next(height),
+                paint);
+        }
 
-            // символы
-            var font = SystemFonts.CreateFont("Arial", 28, FontStyle.Bold);
-            for (var i = 0; i < code.Length; i++)
+        // символы
+        using var font = new SKFont(CaptchaTypeface, 28);
+        for (var i = 0; i < code.Length; i++)
+        {
+            using var paint = new SKPaint
             {
-                var color = Color.FromRgb(
+                Color = new SKColor(
                     (byte)random.Next(0, 120),
                     (byte)random.Next(0, 120),
-                    (byte)random.Next(0, 120));
-                ctx.DrawText(code[i].ToString(), font, color,
-                    new PointF(15 + i * 26, random.Next(5, 18)));
-            }
-        });
+                    (byte)random.Next(0, 120)),
+                IsAntialias = true
+            };
+            canvas.DrawText(
+                code[i].ToString(),
+                15 + i * 26,
+                random.Next(35, 50), // в Skia Y — это базовая линия текста
+                SKTextAlign.Left,
+                font,
+                paint);
+        }
 
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return Convert.ToBase64String(ms.ToArray());
+        using var snapshot = surface.Snapshot();
+        using var data = snapshot.Encode(SKEncodedImageFormat.Png, 90);
+        return Convert.ToBase64String(data.ToArray());
     }
 }
