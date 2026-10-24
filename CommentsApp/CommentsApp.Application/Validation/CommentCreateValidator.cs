@@ -1,31 +1,40 @@
-﻿using FluentValidation;
-using global::CommentsApp.CommentsApp.Application.Dtos;
+﻿using System.Text.RegularExpressions;
+using FluentValidation;
+using CommentsApp.Application.DTOs;
 
-namespace CommentsApp.CommentsApp.Application.Validation;
+namespace CommentsApp.Application.Validation;
 
-public class CommentCreateValidator : AbstractValidator<CommentCreateDto>
+public partial class CommentCreateValidator : AbstractValidator<CommentCreateDto>
 {
+    private static readonly string[] AllowedTags =
+        ["a", "i", "b", "strong", "em", "code", "pre"];
+
     public CommentCreateValidator()
     {
         RuleFor(x => x.UserName)
-            .NotEmpty().WithMessage("Имя обязательно")
-            .MaximumLength(100);
+            .NotEmpty().MaximumLength(50);
 
         RuleFor(x => x.Email)
-            .NotEmpty().EmailAddress().WithMessage("Некорректный email");
+            .NotEmpty().EmailAddress().MaximumLength(254);
 
         RuleFor(x => x.Homepage)
-            .Must(uri => string.IsNullOrWhiteSpace(uri) || Uri.TryCreate(uri, UriKind.Absolute, out _))
-            .WithMessage("Homepage должен быть корректным URL");
+            .Must(BeValidUrl).When(x => !string.IsNullOrEmpty(x.Homepage))
+            .WithMessage("Homepage must be a valid absolute URL.")
+            .MaximumLength(500);
 
         RuleFor(x => x.Text)
-            .NotEmpty()
-            .MaximumLength(5000);
+            .NotEmpty().MaximumLength(5000);
 
-        RuleFor(x => x.CaptchaToken).NotEmpty();
-        RuleFor(x => x.CaptchaCode).NotEmpty();
-
-        // Правило для File удалено — файл валидируется в FileStorage.SaveAsync
-        // (FileTooLargeException / UnsupportedFileTypeException → 400 в контроллере)
+        RuleFor(x => x.CaptchaToken)
+            .NotEmpty();
     }
+
+    private static bool BeValidUrl(string? url) =>
+        url is not null
+        && MyRegex().IsMatch(url)
+        && Uri.TryCreate(url, UriKind.Absolute, out var u)
+        && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps);
+
+    [GeneratedRegex(@"<\s*/?\s*(a|i|b|strong|em|code|pre)\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex MyRegex();
 }

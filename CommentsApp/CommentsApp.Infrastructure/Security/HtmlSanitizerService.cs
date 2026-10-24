@@ -1,8 +1,8 @@
-﻿using CommentsApp.CommentsApp.Application.Interfaces;
+﻿using CommentsApp.Application.Interfaces;
+using CommentsApp.CommentsApp.Application.Interfaces;
 using Ganss.Xss;
-using System.Text.RegularExpressions;
 
-namespace CommentsApp.CommentsApp.Infrastructure.Security;
+namespace CommentsApp.Infrastructure.Security;
 
 public class HtmlSanitizerService : IHtmlSanitizerService
 {
@@ -11,37 +11,27 @@ public class HtmlSanitizerService : IHtmlSanitizerService
     public HtmlSanitizerService()
     {
         _sanitizer = new HtmlSanitizer();
+
         _sanitizer.AllowedTags.Clear();
-        _sanitizer.AllowedTags.UnionWith(["a", "code", "i", "strong"]);
+        _sanitizer.AllowedTags.UnionWith(["a", "i", "b", "strong", "em", "code", "pre"]);
+
         _sanitizer.AllowedAttributes.Clear();
-        _sanitizer.AllowedAttributes.UnionWith(["href", "title"]);
-        _sanitizer.AllowedSchemes.UnionWith(["http", "https"]);
+        _sanitizer.AllowedAttributes.Add("href");
+        _sanitizer.AllowedAttributes.Add("rel");
+
+        _sanitizer.AllowedSchemes.Clear();
+        _sanitizer.AllowedSchemes.Add("http");
+        _sanitizer.AllowedSchemes.Add("https");
     }
 
-    public string Sanitize(string rawHtml)
+    public string Sanitize(string html)
     {
-        var clean = _sanitizer.Sanitize(rawHtml ?? string.Empty);
-        return EnsureBalanced(clean);
-    }
+        if (string.IsNullOrWhiteSpace(html)) return "";
 
-    // Простая проверка парности тегов (валидный XHTML): незакрытые — экранируем удалением
-    private static string EnsureBalanced(string html)
-    {
-        var stack = new Stack<string>();
-        var matches = System.Text.RegularExpressions.Regex.Matches(
-            html, @"<(/?)(a|code|i|strong)([^>]*)>");
+        var result = _sanitizer.Sanitize(html);
 
-        foreach (Match m in matches)
-        {
-            var tag = m.Groups[2].Value.ToLower();
-            if (m.Groups[1].Value == "/")
-            {
-                if (stack.Count == 0 || stack.Pop() != tag)
-                    return System.Net.WebUtility.HtmlEncode(html); // невалидно — экранируем целиком
-            }
-            else if (!m.Value.EndsWith("/>"))
-                stack.Push(tag);
-        }
-        return stack.Count == 0 ? html : System.Net.WebUtility.HtmlEncode(html);
+        // nofollow/noopener для всех исходящих ссылок
+        return result.Replace("<a ", "<a rel=\"nofollow noopener noreferrer\" ",
+            StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,15 +1,17 @@
-﻿namespace CommentsApp.CommentsApp.Domain.Entities
-{
-    public class FileEntity
-    {
-        public int Id { get; set; }
-        public int CommentId { get; set; }
-        public Comment Comment { get; set; } = null!;
+﻿using CommentsApp.Domain.Entities;
 
-        public string FileName { get; set; } = string.Empty;   // оригинальное имя
-        public string StoredName { get; set; } = string.Empty; // имя на диске
-        public string MimeType { get; set; } = string.Empty;
-        public long Size { get; set; }
-        public DateTime UploadedAt { get; set; }
-    }
+namespace CommentsApp.CommentsApp.Domain.Entities;
+
+public class FileEntity
+{
+    public int Id { get; set; }
+    public int CommentId { get; set; }
+    public string FileName { get; set; } = null!;
+    public string StoredName { get; set; } = null!;
+    public string MimeType { get; set; } = null!;
+    public long Size { get; set; }
+
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+
+    public Comment Comment { get; set; } = null!;
 }

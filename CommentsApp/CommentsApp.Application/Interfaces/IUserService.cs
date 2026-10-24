@@ -1,10 +1,8 @@
-﻿using CommentsApp.CommentsApp.Application.Dtos;
-using CommentsApp.CommentsApp.Domain.Entities;
+﻿using CommentsApp.Domain.Entities;
 
-namespace CommentsApp.CommentsApp.Application.Interfaces
+namespace CommentsApp.Application.Interfaces;
+
+public interface IUserService
 {
-    public interface IUserService
-    {
-        Task<User> GetOrCreateAsync(string userName, string email, string? homepage, CancellationToken ct = default);
-    }
+    Task<User> GetOrCreateAsync(string userName, string email, string? homepage, CancellationToken ct = default);
 }

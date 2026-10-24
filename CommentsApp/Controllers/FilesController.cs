@@ -15,6 +15,6 @@ public class FilesController(IFileStorage storage) : ControllerBase
         // Упрощённо: храним id в URL, но файл находим по имени из БД.
         // Для простоты примера: FileStorage.Open принимает StoredName,
         // поэтому добавим в IFileStorage метод GetStoredName(id) через сервис.
-        return NotFound(); // см. расширенную версию ниже
+        return NotFound();
     }
 }

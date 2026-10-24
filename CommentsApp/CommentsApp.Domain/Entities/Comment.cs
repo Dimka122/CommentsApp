@@ -1,18 +1,17 @@
-﻿namespace CommentsApp.CommentsApp.Domain.Entities
+﻿using CommentsApp.CommentsApp.Domain.Entities;
+
+namespace CommentsApp.Domain.Entities;
+
+public class Comment
 {
-    public class Comment
-    {
-        public int Id { get; set; }
-        public int UserId { get; set; }
-        public User User { get; set; } = null!;
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int? ParentCommentId { get; set; }
+    public string Text { get; set; } = null!;
+    public DateTime CreatedAt { get; set; }
 
-        public string Text { get; set; } = string.Empty; // уже санитизированный HTML
-        public DateTime CreatedAt { get; set; }
-
-        public int? ParentCommentId { get; set; }   // null = корневой
-        public Comment? ParentComment { get; set; }
-        public ICollection<Comment> Replies { get; set; } = new List<Comment>();
-
-        public FileEntity? File { get; set; }
-    }
+    public User User { get; set; } = null!;
+    public Comment? ParentComment { get; set; }
+    public List<Comment> Replies { get; set; } = [];
+    public FileEntity? File { get; set; }
 }

@@ -1,55 +1,59 @@
-﻿using CommentsApp.CommentsApp.Application.Interfaces;
-using CommentsApp.CommentsApp.Domain.Entities;
-using CommentsApp.CommentsApp.Infrastructure.Data;
+﻿using AngleSharp.Css.Values;
+using CommentsApp.Application.Interfaces;
+using CommentsApp.Domain.Entities;
+using CommentsApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq.Expressions;
 
 namespace CommentsApp.Infrastructure.Repositories;
 
 public class CommentRepository(AppDbContext db) : ICommentRepository
 {
-    private const string DefaultSort = "CreatedAt";
+    private static readonly Dictionary<string, Expression<Func<Comment, object>>>
+        SortMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["createdAt"] = c => c.CreatedAt,
+            ["userName"] = c => c.User!.UserName,
+            ["email"] = c => c.User!.Email,
+        };
 
     public Task<int> CountRootAsync(CancellationToken ct = default) =>
         db.Comments.CountAsync(c => c.ParentCommentId == null, ct);
 
     public async Task<List<Comment>> GetRootPageAsync(
-        int page, int pageSize, string sortField, string sortDir, CancellationToken ct = default)
+        int page, int pageSize, string sortField, string sortDir,
+        CancellationToken ct = default)
     {
-        var (field, dir) = Normalize(sortField, sortDir);
+        var descending = !string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
 
-        var query = db.Comments
-            .AsNoTracking()
-            .Include(c => c.User)
-            .Include(c => c.File)
+        if (!SortMap.TryGetValue(sortField, out var key))
+            throw new ArgumentException($"Unknown sort field: {sortField}");
+
+        var query = ApplyIncludes(db.Comments.AsNoTracking())
             .Where(c => c.ParentCommentId == null);
 
-        query = (field, dir) switch
-        {
-            ("UserName", "asc") => query.OrderBy(c => c.User!.UserName),
-            ("UserName", "desc") => query.OrderByDescending(c => c.User!.UserName),
-            ("Email", "asc") => query.OrderBy(c => c.User!.Email),
-            ("Email", "desc") => query.OrderByDescending(c => c.User!.Email),
-            (_, "asc") => query.OrderBy(c => c.CreatedAt),
-            _ => query.OrderByDescending(c => c.CreatedAt) // default LIFO
-        };
+        // ThenBy(Id) — тай-брейк, без него строки между страницами дублируются
+        IOrderedQueryable<Comment> ordered = descending
+            ? query.OrderByDescending(key).ThenByDescending(c => c.Id)
+            : query.OrderBy(key).ThenBy(c => c.Id);
 
-        return await query
+        return await ordered
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
     }
 
-    public async Task<List<Comment>> GetRepliesAsync(IEnumerable<int> rootIds, CancellationToken ct = default)
+    public async Task<List<Comment>> GetRepliesAsync(
+        IEnumerable<int> parentIds, CancellationToken ct = default)
     {
-        var ids = rootIds.ToArray();
-        if (ids.Length == 0) return [];
+        var ids = parentIds.ToList();
+        if (ids.Count == 0) return [];
 
-        return await db.Comments
-            .AsNoTracking()
-            .Include(c => c.User)
-            .Include(c => c.File)
+        return await ApplyIncludes(db.Comments.AsNoTracking())
             .Where(c => c.ParentCommentId != null && ids.Contains(c.ParentCommentId.Value))
-            .OrderBy(c => c.CreatedAt) // ответы — FIFO (старые сверху)
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
             .ToListAsync(ct);
     }
 
@@ -61,15 +65,7 @@ public class CommentRepository(AppDbContext db) : ICommentRepository
     public Task SaveChangesAsync(CancellationToken ct = default) =>
         db.SaveChangesAsync(ct);
 
-    private static (string Field, string Dir) Normalize(string? field, string? dir)
-    {
-        var f = field?.ToLowerInvariant() switch
-        {
-            "username" or "user_name" or "name" => "UserName",
-            "email" => "Email",
-            _ => DefaultSort
-        };
-        var d = dir?.ToLowerInvariant() == "asc" ? "asc" : "desc";
-        return (f, d);
-    }
+    private static IQueryable<Comment> ApplyIncludes(IQueryable<Comment> q) =>
+        q.Include(c => c.User)
+         .Include(c => c.File);
 }
