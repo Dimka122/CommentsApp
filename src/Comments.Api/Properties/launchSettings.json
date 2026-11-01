@@ -1,12 +1,9 @@
-{
+﻿{
   "profiles": {
     "Comments.Api": {
       "commandName": "Project",
-      "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "applicationUrl": "https://localhost:50987;http://localhost:50988"
+      "applicationUrl": "http://localhost:8080",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
     }
   }
 }

@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Новый профиль",
+    "Projects": [
+      {
+        "Path": "src\\Comments.Api\\Comments.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Comments.Worker\\Comments.Worker.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
