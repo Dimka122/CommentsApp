@@ -1,0 +1,17 @@
+# Нагрузочный тест. НЕ использовать на публичном сервере: отключает CAPTCHA и лимиты запросов.
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml run --rm -e WRITE_RPS=30 -e READ_RPS=200 k6 run /scripts/k6-comments.js
+services:
+  api:
+    environment:
+      Captcha__Mode: LoadTest
+      RateLimiting__WritePerMinute: "100000000"
+      RateLimiting__ReadPerMinute: "100000000"
+  k6:
+    image: grafana/k6:latest
+    profiles: ["loadtest"]
+    environment:
+      BASE_URL: http://api:8080
+    volumes:
+      - ./tests/load:/scripts:ro
+    depends_on: [api]

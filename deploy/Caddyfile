@@ -1,0 +1,24 @@
+# SITE_ADDRESS=:80 (по умолчанию, HTTP) или домен, например comments.example.com — тогда Caddy сам получит HTTPS-сертификат.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	request_body {
+		max_size 8MB
+	}
+
+	# CSP не применяем к /graphql: встроенная IDE (Banana Cake Pop) подгружает собственные ресурсы.
+	@app not path /graphql /graphql/*
+	header @app Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	@backend path /api/* /graphql /graphql/* /hubs/*
+	reverse_proxy @backend api:8080
+	reverse_proxy web:80
+}
