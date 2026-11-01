@@ -1,6 +1,7 @@
 using Comments.Infrastructure;
 using Comments.Infrastructure.Messaging;
 using Comments.Worker;
+using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration);   // БД и Elasticsearch (Redis/файлы создаются лениво и здесь не нужны)

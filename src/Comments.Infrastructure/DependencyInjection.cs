@@ -30,7 +30,7 @@ public static class DependencyInjection
 
         services.Configure<StorageOptions>(cfg.GetSection("Storage"));
         services.AddSingleton<IFileStorage, LocalFileStorage>();
-        services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
+        services.AddSingleton<IImageProcessor, SkiaImageProcessor>();
         // Captcha:Mode=LoadTest отключает проверку — ТОЛЬКО для нагрузочного теста (docker-compose.loadtest.yml).
         if (string.Equals(cfg["Captcha:Mode"], "LoadTest", StringComparison.OrdinalIgnoreCase))
             services.AddSingleton<ICaptchaService, LoadTestCaptchaService>();
