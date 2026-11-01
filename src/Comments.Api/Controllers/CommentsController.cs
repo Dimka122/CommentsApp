@@ -28,11 +28,17 @@ public class CommentsController(CommentService comments) : ControllerBase
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             Request.Headers.UserAgent.ToString());
 
-        var dto = await comments.CreateAsync(cmd, client, ct);
-        return Created($"/api/comments/{dto.Id}", dto);
+        var result = await comments.CreateAsync(cmd, client, ct);
+        return result.IsSuccess
+            ? Created($"/api/comments/{result.Value!.Id}", result.Value)
+            : this.Invalid(result.Errors!);
     }
 
     /// <summary>Предпросмотр: тот же санитайзер, что и при сохранении.</summary>
     [HttpPost("preview"), EnableRateLimiting("write")]
-    public PreviewResponse Preview([FromBody] PreviewRequest req) => new(comments.Preview(req.Text));
+    public IActionResult Preview([FromBody] PreviewRequest req)
+    {
+        var result = comments.Preview(req.Text);
+        return result.IsSuccess ? Ok(new PreviewResponse(result.Value!)) : this.Invalid(result.Errors!);
+    }
 }

@@ -17,34 +17,39 @@ public sealed class CommentService(
     private sealed record PreparedFile(AttachmentKind Kind, byte[] Bytes, string Extension);
 
     // ---------- Preview ----------
-    public string Preview(string? text)
+    public Result<string> Preview(string? text)
     {
-        if (string.IsNullOrWhiteSpace(text)) throw new ValidationException("text", "Text is required.");
-        if (text.Length > CommentValidator.MaxTextLength) throw new ValidationException("text", "Text is too long.");
+        if (string.IsNullOrWhiteSpace(text)) return Result<string>.Fail("text", "Text is required.");
+        if (text.Length > CommentValidator.MaxTextLength) return Result<string>.Fail("text", "Text is too long.");
         var r = sanitizer.Sanitize(text);
-        if (!r.IsValid) throw new ValidationException("text", r.Error!);
-        return r.Html;
+        return r.IsValid ? Result<string>.Ok(r.Html) : Result<string>.Fail("text", r.Error!);
     }
 
     // ---------- Create ----------
-    public async Task<CommentDto> CreateAsync(CreateCommentCommand cmd, ClientInfo client, CancellationToken ct = default)
+    public async Task<Result<CommentDto>> CreateAsync(CreateCommentCommand cmd, ClientInfo client, CancellationToken ct = default)
     {
         // 1. Дешёвая валидация (до капчи и тяжёлой обработки файлов).
         var errors = CommentValidator.Validate(cmd);
         var sanitized = string.IsNullOrWhiteSpace(cmd.Text) ? null : sanitizer.Sanitize(cmd.Text);
         if (sanitized is { IsValid: false }) errors.TryAdd("text", [sanitized.Error!]);
-        if (errors.Count > 0) throw CommentValidator.ToException(errors);
+        if (errors.Count > 0) return Result<CommentDto>.Fail(CommentValidator.ToErrors(errors));
 
         // 2. CAPTCHA (одноразовая).
         if (!await captcha.ValidateAsync(cmd.CaptchaId!, cmd.CaptchaAnswer!, ct))
-            throw new ValidationException("captchaAnswer", "CAPTCHA is incorrect or expired.");
+            return Result<CommentDto>.Fail("captchaAnswer", "CAPTCHA is incorrect or expired. Please enter the new code.");
 
         // 3. Родитель.
         if (cmd.ParentId is { } parentId && !await db.Comments.AnyAsync(c => c.Id == parentId, ct))
-            throw new ValidationException("parentId", "Parent comment not found.");
+            return Result<CommentDto>.Fail("parentId", "The comment you are replying to no longer exists.");
 
         // 4. Файл (ресайз/проверка содержимого).
-        var file = cmd.File is null ? null : await PrepareFileAsync(cmd.File, ct);
+        PreparedFile? file = null;
+        if (cmd.File is not null)
+        {
+            var (prepared, error) = await PrepareFileAsync(cmd.File, ct);
+            if (error is not null) return Result<CommentDto>.Fail("file", error);
+            file = prepared;
+        }
 
         string? storedPath = null;
         try
@@ -67,7 +72,7 @@ public sealed class CommentService(
             await db.SaveChangesAsync(ct);
             await cache.InvalidateAsync(ct);
             await events.PublishAsync(new CommentCreated(comment.Id, comment.ParentId, user.Id, comment.CreatedAt), ct);
-            return (await GetByIdAsync(comment.Id, ct))!;
+            return Result<CommentDto>.Ok((await GetByIdAsync(comment.Id, ct))!);
         }
         catch
         {
@@ -76,7 +81,7 @@ public sealed class CommentService(
         }
     }
 
-    private async Task<PreparedFile> PrepareFileAsync(UploadedFile f, CancellationToken ct)
+    private async Task<(PreparedFile? File, string? Error)> PrepareFileAsync(UploadedFile f, CancellationToken ct)
     {
         var ext = Path.GetExtension(f.FileName).ToLowerInvariant();
 
@@ -87,18 +92,19 @@ public sealed class CommentService(
 
         if (ext == ".txt")
         {
-            if (bytes.Length > 100 * 1024) throw new ValidationException("file", "Text file must not exceed 100 KB.");
+            if (bytes.Length > 100 * 1024) return (null, "Text file must not exceed 100 KB.");
             string content;
             try { content = StrictUtf8.GetString(bytes); }
-            catch (DecoderFallbackException) { throw new ValidationException("file", "Text file must be valid UTF-8."); }
+            catch (DecoderFallbackException) { return (null, "Text file must be valid UTF-8."); }
             if (content.Any(ch => char.IsControl(ch) && ch is not ('\n' or '\r' or '\t')))
-                throw new ValidationException("file", "Text file contains unsupported characters.");
-            return new PreparedFile(AttachmentKind.Text, bytes, ".txt");
+                return (null, "Text file contains unsupported characters.");
+            return (new PreparedFile(AttachmentKind.Text, bytes, ".txt"), null);
         }
 
-        var img = await images.ProcessAsync(bytes, ct)
-                  ?? throw new ValidationException("file", "File is not a valid JPG, GIF or PNG image.");
-        return new PreparedFile(AttachmentKind.Image, img.Bytes, img.Extension);
+        var img = await images.ProcessAsync(bytes, ct);
+        return img is null
+            ? (null, "File is not a valid JPG, GIF or PNG image.")
+            : (new PreparedFile(AttachmentKind.Image, img.Bytes, img.Extension), null);
     }
 
     private static string SafeFileName(string name)
@@ -143,7 +149,7 @@ public sealed class CommentService(
 
         var roots = await Project(ordered.Skip((page - 1) * PageSize).Take(PageSize)).ToListAsync(ct);
 
-        // Ответы подгружаем уровень за уровнем (позже эту часть заменит GraphQL + кэш).
+        // Ответы подгружаем уровень за уровнем.
         var all = new List<CommentDto>(roots);
         var level = roots.Select(r => r.Id).ToList();
         for (var depth = 0; depth < 50 && level.Count > 0; depth++)

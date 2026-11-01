@@ -1,5 +1,4 @@
 using Comments.Application.Abstractions;
-using Comments.Application.Common;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -12,8 +11,10 @@ public class SearchController(ICommentSearch search) : ControllerBase
     public async Task<IActionResult> Get([FromQuery] string? q, [FromQuery] int page = 1, CancellationToken ct = default)
     {
         q = q?.Trim();
-        if (string.IsNullOrEmpty(q)) throw new ValidationException("q", "Search query is required.");
-        if (q.Length > 100) throw new ValidationException("q", "Search query is too long (max 100 characters).");
+        if (string.IsNullOrEmpty(q))
+            return this.Invalid(new Dictionary<string, string[]> { ["q"] = ["Search query is required."] });
+        if (q.Length > 100)
+            return this.Invalid(new Dictionary<string, string[]> { ["q"] = ["Search query is too long (max 100 characters)."] });
 
         try { return Ok(await search.SearchAsync(q, Math.Max(1, page), 25, ct)); }
         catch (Exception ex) when (ex is HttpRequestException || (ex is TaskCanceledException && !ct.IsCancellationRequested))

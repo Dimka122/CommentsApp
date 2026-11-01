@@ -48,6 +48,6 @@ public static partial class CommentValidator
         return e;
     }
 
-    public static ValidationException ToException(Dictionary<string, List<string>> e)
-        => new(e.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray()));
+    public static IReadOnlyDictionary<string, string[]> ToErrors(Dictionary<string, List<string>> e)
+        => e.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray());
 }
