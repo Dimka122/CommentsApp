@@ -76,3 +76,18 @@ button.thumb img { max-width: 160px; max-height: 120px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 .banner { display: block; width: 100%; margin: 0 0 .75rem; background: var(--fresh); border-color: var(--border); animation: fade-in .25s ease; }
+
+/* ---- UI update: без видимой шапки таблицы, панель сортировки, запоминание автора ---- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+input[type="checkbox"] { width: auto; margin-right: .4rem; }
+.sortbar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .75rem; }
+button.chip { border-radius: 999px; padding: .2rem .8rem; }
+button.chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.author-cell { width: 210px; line-height: 1.35; overflow-wrap: anywhere; }
+.author-cell time { font-size: .85rem; }
+.author-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .6rem; margin-bottom: .75rem; }
+.remember { display: flex; align-items: center; margin: -.25rem 0 .75rem; color: var(--muted); font-size: .9rem; }
+@media (max-width: 640px) {
+  table.comments, table.comments tbody, table.comments tr, table.comments td { display: block; }
+  .author-cell { width: auto; padding-bottom: 0; }
+}

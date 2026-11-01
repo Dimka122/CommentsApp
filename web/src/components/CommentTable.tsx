@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ApiComment, CommentNode, SortBy } from '../types';
+import type { ApiComment, CommentNode } from '../types';
 import { CommentForm } from './CommentForm';
 import { CommentThread } from './CommentThread';
 import { Attachments, Author, formatDate } from './CommentParts';
@@ -8,25 +8,22 @@ import { SafeHtml } from './SafeHtml';
 
 interface Props {
   items: CommentNode[];
-  sortBy: SortBy;
-  desc: boolean;
-  onSort: (col: SortBy) => void;
   fresh: Set<string>;
   onOpen: (i: LightboxItem) => void;
   onCreated: (c: ApiComment) => void;
 }
 
-const arrow = (active: boolean, desc: boolean) => (active ? (desc ? ' ▼' : ' ▲') : '');
-
-function RootRow({ node, fresh, onOpen, onCreated }: Omit<Props, 'items' | 'sortBy' | 'desc' | 'onSort'> & { node: CommentNode }) {
+function RootRow({ node, fresh, onOpen, onCreated }: Omit<Props, 'items'> & { node: CommentNode }) {
   const [replying, setReplying] = useState(false);
   const hasThread = replying || node.replies.length > 0;
   return (
     <tbody className={'root' + (fresh.has(node.id) ? ' fresh' : '')}>
       <tr>
-        <td className="nowrap"><strong><Author c={node} /></strong></td>
-        <td className="nowrap">{node.email}</td>
-        <td className="nowrap muted">{formatDate(node.createdAt)}</td>
+        <td className="author-cell">
+          <strong><Author c={node} /></strong>
+          <div className="muted">{node.email}</div>
+          <time className="muted">{formatDate(node.createdAt)}</time>
+        </td>
         <td>
           <SafeHtml html={node.textHtml} className="text" />
           <Attachments items={node.attachments} onOpen={onOpen} />
@@ -35,7 +32,7 @@ function RootRow({ node, fresh, onOpen, onCreated }: Omit<Props, 'items' | 'sort
       </tr>
       {hasThread && (
         <tr className="thread">
-          <td colSpan={4}>
+          <td colSpan={2}>
             {replying && (
               <CommentForm parentId={node.id} onCancel={() => setReplying(false)}
                 onCreated={(c) => { setReplying(false); onCreated(c); }} />
@@ -54,20 +51,16 @@ function RootRow({ node, fresh, onOpen, onCreated }: Omit<Props, 'items' | 'sort
   );
 }
 
-export function CommentTable(p: Props) {
-  const th = (col: SortBy, label: string) => (
-    <th aria-sort={p.sortBy === col ? (p.desc ? 'descending' : 'ascending') : 'none'}>
-      <button className="sort" onClick={() => p.onSort(col)}>{label}{arrow(p.sortBy === col, p.desc)}</button>
-    </th>
-  );
+/** Таблица корневых комментариев. Шапка скрыта визуально (остаётся для скринридеров), сортировка — в SortBar. */
+export function CommentTable({ items, fresh, onOpen, onCreated }: Props) {
   return (
     <div className="table-wrap">
       <table className="comments">
-        <thead>
-          <tr>{th('USER_NAME', 'User Name')}{th('EMAIL', 'E-mail')}{th('CREATED_AT', 'Date')}<th>Comment</th></tr>
+        <thead className="sr-only">
+          <tr><th>Author</th><th>Comment</th></tr>
         </thead>
-        {p.items.map((n) => (
-          <RootRow key={n.id} node={n} fresh={p.fresh} onOpen={p.onOpen} onCreated={p.onCreated} />
+        {items.map((n) => (
+          <RootRow key={n.id} node={n} fresh={fresh} onOpen={onOpen} onCreated={onCreated} />
         ))}
       </table>
     </div>

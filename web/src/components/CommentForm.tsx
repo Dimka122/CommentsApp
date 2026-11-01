@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { ApiError, createComment, fetchCaptcha, previewText } from '../api';
 import type { ApiComment, Captcha, FieldErrors } from '../types';
+import { forgetAuthor, loadAuthor, saveAuthor } from '../useSavedAuthor';
 import { checkTags, validateForm } from '../validation';
 import { SafeHtml } from './SafeHtml';
 
@@ -22,9 +23,12 @@ function Field({ label, error, required, children }: { label: string; error?: st
 }
 
 export function CommentForm({ parentId, onCreated, onCancel }: Props) {
-  const [userName, setUserName] = useState('');
-  const [email, setEmail] = useState('');
-  const [homepage, setHomepage] = useState('');
+  const saved = useMemo(loadAuthor, []);
+  const [userName, setUserName] = useState(saved?.userName ?? '');
+  const [email, setEmail] = useState(saved?.email ?? '');
+  const [homepage, setHomepage] = useState(saved?.homepage ?? '');
+  const [editingAuthor, setEditingAuthor] = useState(saved === null);
+  const [remember, setRemember] = useState(true);
   const [text, setText] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -44,13 +48,25 @@ export function CommentForm({ parentId, onCreated, onCancel }: Props) {
 
   const err = (k: string) => errors[k]?.[0];
 
+  /** Ошибки в полях автора возможны, только когда они видны — раскрываем их. */
+  function showErrors(e: FieldErrors) {
+    setErrors(e);
+    if (e.userName || e.email || e.homepage) setEditingAuthor(true);
+  }
+
   function handleError(e: unknown) {
     if (e instanceof ApiError) {
-      setErrors(e.fieldErrors);
+      showErrors(e.fieldErrors);
       setFormError(Object.keys(e.fieldErrors).length ? null : e.message);
     } else {
       setFormError('Network error. Please try again.');
     }
+  }
+
+  function forget() {
+    forgetAuthor();
+    setUserName(''); setEmail(''); setHomepage('');
+    setEditingAuthor(true);
   }
 
   /** Кнопки панели: оборачивают выделенный текст в тег. */
@@ -80,7 +96,7 @@ export function CommentForm({ parentId, onCreated, onCancel }: Props) {
     setFormError(null);
     const found = validateForm({ userName, email, homepage, text, captchaAnswer, file });
     if (Object.keys(found).length > 0 || !captcha) {
-      setErrors(found);
+      showErrors(found);
       if (!captcha) setFormError('CAPTCHA is not loaded yet.');
       return;
     }
@@ -98,6 +114,13 @@ export function CommentForm({ parentId, onCreated, onCancel }: Props) {
       if (file) fd.append('file', file);
 
       const created = await createComment(fd);
+
+      if (remember) {
+        saveAuthor({ userName: userName.trim(), email: email.trim(), homepage: homepage.trim() });
+        setEditingAuthor(false);
+      } else {
+        forgetAuthor();
+      }
       setText(''); setFile(null); setPreviewHtml(null);
       if (fileRef.current) fileRef.current.value = '';
       onCreated(created);
@@ -112,17 +135,31 @@ export function CommentForm({ parentId, onCreated, onCancel }: Props) {
 
   return (
     <form className={'comment-form' + (parentId ? ' reply-form' : '')} onSubmit={submit} noValidate>
-      <div className="grid">
-        <Field label="User Name" required error={err('userName')}>
-          <input value={userName} maxLength={64} autoComplete="nickname" onChange={(e) => setUserName(e.target.value)} />
-        </Field>
-        <Field label="E-mail" required error={err('email')}>
-          <input type="email" value={email} maxLength={254} autoComplete="email" onChange={(e) => setEmail(e.target.value)} />
-        </Field>
-        <Field label="Homepage" error={err('homepage')}>
-          <input type="url" value={homepage} maxLength={2048} placeholder="https://" onChange={(e) => setHomepage(e.target.value)} />
-        </Field>
-      </div>
+      {editingAuthor ? (
+        <>
+          <div className="grid">
+            <Field label="User Name" required error={err('userName')}>
+              <input value={userName} maxLength={64} autoComplete="nickname" onChange={(e) => setUserName(e.target.value)} />
+            </Field>
+            <Field label="E-mail" required error={err('email')}>
+              <input type="email" value={email} maxLength={254} autoComplete="email" onChange={(e) => setEmail(e.target.value)} />
+            </Field>
+            <Field label="Homepage" error={err('homepage')}>
+              <input type="url" value={homepage} maxLength={2048} placeholder="https://" onChange={(e) => setHomepage(e.target.value)} />
+            </Field>
+          </div>
+          <label className="remember">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            Remember me on this device
+          </label>
+        </>
+      ) : (
+        <div className="author-summary">
+          Posting as <strong>{userName}</strong> <span className="muted">({email})</span>
+          <button type="button" className="link" onClick={() => setEditingAuthor(true)}>Change</button>
+          <button type="button" className="link" onClick={forget}>Forget me</button>
+        </div>
+      )}
 
       <Field label="Text" required error={err('text')}>
         <div className="toolbar" role="toolbar" aria-label="Formatting">

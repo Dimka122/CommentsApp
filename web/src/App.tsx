@@ -6,6 +6,7 @@ import { Lightbox } from './components/Lightbox';
 import type { LightboxItem } from './components/Lightbox';
 import { Pagination } from './components/Pagination';
 import { SearchPanel } from './components/SearchPanel';
+import { SortBar } from './components/SortBar';
 import { buildNode } from './tree';
 import type { ApiComment, CommentPage, SortBy } from './types';
 import { useCommentsHub } from './useCommentsHub';
@@ -115,6 +116,7 @@ export default function App() {
 
       <section>
         <h2>Discussion {data && <span className="count">{data.totalCount}</span>}</h2>
+        <SortBar sortBy={sortBy} desc={desc} onSort={onSort} />
         {pending > 0 && (
           <button className="banner" onClick={() => void load()}>
             {pending} new comment{pending > 1 ? 's' : ''} — click to refresh
@@ -123,8 +125,7 @@ export default function App() {
         {error && <p className="err" role="alert">{error}</p>}
         {data && nodes.length === 0 && <p className="muted">No comments yet. Be the first!</p>}
         {nodes.length > 0 && (
-          <CommentTable items={nodes} sortBy={sortBy} desc={desc} onSort={onSort} fresh={fresh}
-            onOpen={setLightbox} onCreated={onCreated} />
+          <CommentTable items={nodes} fresh={fresh} onOpen={setLightbox} onCreated={onCreated} />
         )}
         <Pagination page={page} totalPages={totalPages} onChange={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       </section>
