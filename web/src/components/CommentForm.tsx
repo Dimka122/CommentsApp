@@ -10,6 +10,7 @@ interface Props {
   parentId: string | null;
   onCreated: (c: ApiComment) => void;
   onCancel?: () => void;
+  autoFocus?: boolean;
 }
 
 function Field({ label, error, required, children }: { label: string; error?: string; required?: boolean; children: ReactNode }) {
@@ -22,13 +23,13 @@ function Field({ label, error, required, children }: { label: string; error?: st
   );
 }
 
-export function CommentForm({ parentId, onCreated, onCancel }: Props) {
+export function CommentForm({ parentId, onCreated, onCancel, autoFocus }: Props) {
   const saved = useMemo(loadAuthor, []);
   const [userName, setUserName] = useState(saved?.userName ?? '');
   const [email, setEmail] = useState(saved?.email ?? '');
   const [homepage, setHomepage] = useState(saved?.homepage ?? '');
   const [editingAuthor, setEditingAuthor] = useState(saved === null);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [text, setText] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -45,6 +46,7 @@ export function CommentForm({ parentId, onCreated, onCancel }: Props) {
     catch { setFormError('Could not load CAPTCHA. Please try again.'); }
   }, []);
   useEffect(() => { void loadCaptcha(); }, [loadCaptcha]);
+  useEffect(() => { if (autoFocus) textRef.current?.focus(); }, [autoFocus]);
 
   const err = (k: string) => errors[k]?.[0];
 
@@ -115,12 +117,8 @@ export function CommentForm({ parentId, onCreated, onCancel }: Props) {
 
       const created = await createComment(fd);
 
-      if (remember) {
-        saveAuthor({ userName: userName.trim(), email: email.trim(), homepage: homepage.trim() });
-        setEditingAuthor(false);
-      } else {
-        forgetAuthor();
-      }
+      saveAuthor({ userName: userName.trim(), email: email.trim(), homepage: homepage.trim() }, remember);
+      setEditingAuthor(false);
       setText(''); setFile(null); setPreviewHtml(null);
       if (fileRef.current) fileRef.current.value = '';
       onCreated(created);
@@ -150,7 +148,7 @@ export function CommentForm({ parentId, onCreated, onCancel }: Props) {
           </div>
           <label className="remember">
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-            Remember me on this device
+            Remember me on this device (all tabs)
           </label>
         </>
       ) : (

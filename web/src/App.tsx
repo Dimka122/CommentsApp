@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchCommentsPage } from './api';
 import { CommentForm } from './components/CommentForm';
 import { CommentTable } from './components/CommentTable';
+import { ComposeDialog } from './components/ComposeDialog';
 import { Lightbox } from './components/Lightbox';
 import type { LightboxItem } from './components/Lightbox';
 import { Pagination } from './components/Pagination';
@@ -20,6 +21,8 @@ export default function App() {
   const [data, setData] = useState<CommentPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(0); // новые комментарии, которые не попали в текущий вид
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [showFab, setShowFab] = useState(false);
   const [lightbox, setLightbox] = useState<LightboxItem | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
   const [searchInput, setSearchInput] = useState('');
@@ -85,6 +88,25 @@ export default function App() {
 
   const onCreated = useCallback((c: ApiComment) => { markFresh(c); void loadRef.current(); }, [markFresh]);
 
+  // Кнопка «New comment» появляется, когда форма вверху страницы уже не видна.
+  useEffect(() => {
+    const onScroll = () => setShowFab(window.scrollY > 400);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const closeCompose = useCallback(() => setComposeOpen(false), []);
+
+  /** Новый корневой комментарий из окна: показываем начало списка (новые сверху), чтобы пользователь его увидел. */
+  const onComposed = useCallback((c: ApiComment) => {
+    setComposeOpen(false);
+    setSortBy('CREATED_AT'); setDesc(true); setPage(1);
+    markFresh(c);
+    void loadRef.current();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [markFresh]);
+
   useEffect(() => {
     const t = window.setTimeout(() => setQuery(searchInput.trim()), 350);
     return () => window.clearTimeout(t);
@@ -129,6 +151,11 @@ export default function App() {
         )}
         <Pagination page={page} totalPages={totalPages} onChange={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       </section>
+
+      {showFab && !composeOpen && (
+        <button type="button" className="fab primary" onClick={() => setComposeOpen(true)}>✎ New comment</button>
+      )}
+      <ComposeDialog open={composeOpen} onClose={closeCompose} onCreated={onComposed} />
 
       {lightbox && <Lightbox item={lightbox} onClose={() => setLightbox(null)} />}
     </div>
