@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchCommentsPage } from './api';
 import { CommentForm } from './components/CommentForm';
+import { CommentCards } from './components/CommentCards';
 import { CommentTable } from './components/CommentTable';
 import { ComposeDialog } from './components/ComposeDialog';
 import { Lightbox } from './components/Lightbox';
@@ -11,6 +12,11 @@ import { SortBar } from './components/SortBar';
 import { buildNode } from './tree';
 import type { ApiComment, CommentPage, SortBy } from './types';
 import { useCommentsHub } from './useCommentsHub';
+import { MeContext } from './AuthorContext';
+import type { Me } from './AuthorContext';
+import { AUTHOR_EVENT, loadAuthor } from './useSavedAuthor';
+import { loadView, saveView } from './useView';
+import type { View } from './useView';
 
 const has = (d: CommentPage, id: string) => d.items.some((r) => r.id === id || r.descendants.some((x) => x.id === id));
 
@@ -21,6 +27,16 @@ export default function App() {
   const [data, setData] = useState<CommentPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(0); // новые комментарии, которые не попали в текущий вид
+  const [view, setView] = useState<View>(loadView);
+  const [me, setMe] = useState<Me | null>(() => {
+    const a = loadAuthor();
+    return a ? { userName: a.userName, email: a.email } : null;
+  });
+  useEffect(() => {
+    const sync = () => { const a = loadAuthor(); setMe(a ? { userName: a.userName, email: a.email } : null); };
+    window.addEventListener(AUTHOR_EVENT, sync);
+    return () => window.removeEventListener(AUTHOR_EVENT, sync);
+  }, []);
   const [composeOpen, setComposeOpen] = useState(false);
   const [showFab, setShowFab] = useState(false);
   const [lightbox, setLightbox] = useState<LightboxItem | null>(null);
@@ -118,10 +134,13 @@ export default function App() {
     setPage(1);
   }
 
+  const changeView = (v: View) => { setView(v); saveView(v); };
+
   const nodes = useMemo(() => (data ? data.items.map(buildNode) : []), [data]);
   const totalPages = data ? Math.ceil(data.totalCount / data.pageSize) : 0;
 
   return (
+    <MeContext.Provider value={me}>
     <div className="container">
       <header className="top">
         <h1>Comments</h1>
@@ -138,7 +157,7 @@ export default function App() {
 
       <section>
         <h2>Discussion {data && <span className="count">{data.totalCount}</span>}</h2>
-        <SortBar sortBy={sortBy} desc={desc} onSort={onSort} />
+        <SortBar sortBy={sortBy} desc={desc} onSort={onSort} view={view} onView={changeView} />
         {pending > 0 && (
           <button className="banner" onClick={() => void load()}>
             {pending} new comment{pending > 1 ? 's' : ''} — click to refresh
@@ -147,7 +166,9 @@ export default function App() {
         {error && <p className="err" role="alert">{error}</p>}
         {data && nodes.length === 0 && <p className="muted">No comments yet. Be the first!</p>}
         {nodes.length > 0 && (
-          <CommentTable items={nodes} fresh={fresh} onOpen={setLightbox} onCreated={onCreated} />
+          view === 'cards'
+            ? <CommentCards items={nodes} fresh={fresh} onOpen={setLightbox} onCreated={onCreated} />
+            : <CommentTable items={nodes} fresh={fresh} onOpen={setLightbox} onCreated={onCreated} />
         )}
         <Pagination page={page} totalPages={totalPages} onChange={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       </section>
@@ -159,5 +180,6 @@ export default function App() {
 
       {lightbox && <Lightbox item={lightbox} onClose={() => setLightbox(null)} />}
     </div>
+    </MeContext.Provider>
   );
 }

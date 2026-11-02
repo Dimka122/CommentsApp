@@ -3,6 +3,9 @@
 // (localStorage) и подставляются во всех новых вкладках.
 const KEY = 'comments.author';
 
+/** Событие window: автор изменился (отправили комментарий или нажали «Forget me»). */
+export const AUTHOR_EVENT = 'comments-author-changed';
+
 export interface SavedAuthor { userName: string; email: string; homepage: string }
 
 function read(store: () => Storage): SavedAuthor | null {
@@ -26,9 +29,11 @@ export function saveAuthor(a: SavedAuthor, persistent: boolean) {
   const json = JSON.stringify(a);
   try { sessionStorage.setItem(KEY, json); } catch { /* ignore */ }
   if (persistent) { try { localStorage.setItem(KEY, json); } catch { /* ignore */ } }
+  window.dispatchEvent(new Event(AUTHOR_EVENT));
 }
 
 export function forgetAuthor() {
   try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+  window.dispatchEvent(new Event(AUTHOR_EVENT));
 }

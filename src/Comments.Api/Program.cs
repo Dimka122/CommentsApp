@@ -68,7 +68,7 @@ app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.Use(async (ctx, next) =>
 {
-    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers.XContentTypeOptions = "nosniff";
     ctx.Response.Headers["Referrer-Policy"] = "same-origin";
     await next();
 });

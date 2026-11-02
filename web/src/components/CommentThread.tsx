@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useIsMine } from '../AuthorContext';
 import type { ApiComment, CommentNode } from '../types';
 import { CommentForm } from './CommentForm';
 import { Attachments, Author, formatDate } from './CommentParts';
@@ -16,10 +17,11 @@ interface Props {
 /** Ответ на комментарий (каскадное отображение, вложенность не ограничена). */
 export function CommentThread({ node, depth, fresh, onOpen, onCreated }: Props) {
   const [replying, setReplying] = useState(false);
+  const mine = useIsMine()(node);
   return (
-    <article className={'comment' + (fresh.has(node.id) ? ' fresh' : '')}>
+    <article className={'comment' + (fresh.has(node.id) ? ' fresh' : '') + (mine ? ' mine' : '')}>
       <header className="meta">
-        <strong><Author c={node} /></strong>
+        <strong><Author c={node} />{mine && <span className="badge">you</span>}</strong>
         <span className="muted">{node.email}</span>
         <time className="muted">{formatDate(node.createdAt)}</time>
         <button className="link" onClick={() => setReplying((v) => !v)}>{replying ? 'Cancel' : 'Reply'}</button>

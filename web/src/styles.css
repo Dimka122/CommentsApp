@@ -1,5 +1,5 @@
 :root {
-  --bg: #f5f7fa; --card: #fff; --text: #1d2433; --muted: #6b7587; --border: #dde2ea;
+  --bg: #82917be1; --card: #fff; --text: #1d2433; --muted: #6b7587; --border: #121316;
   --accent: #3b6df0; --accent-text: #fff; --danger: #c62b3a; --fresh: #fff6c9;
   color-scheme: light dark;
 }
@@ -104,3 +104,34 @@ button.chip.active { background: var(--accent); color: var(--accent-text); borde
   .compose-overlay { align-items: flex-end; padding: 0; }
   .compose-panel { border-radius: 12px 12px 0 0; }
 }
+
+/* ---- Карточки: одна слева, следующая справа ---- */
+.sortbar { justify-content: space-between; }
+.sort-group, .view-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+
+.cards { display: flex; flex-direction: column; gap: 1rem; }
+.card-row { display: flex; }
+.card-row.left { justify-content: flex-start; }
+.card-row.right { justify-content: flex-end; }
+.bubble { width: min(100%, 78%); background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: .8rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); animation: fade-in .3s ease; }
+.card-row.left .bubble { border-bottom-left-radius: 4px; }
+.card-row.right .bubble { border-bottom-right-radius: 4px; background: color-mix(in srgb, var(--accent) 9%, var(--card)); }
+.bubble.fresh { animation: flash-card 2.5s ease-out; }
+.bubble-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .45rem; }
+.bubble-head time { margin-left: auto; font-size: .85rem; white-space: nowrap; }
+.who { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; overflow-wrap: anywhere; }
+.who .muted { font-size: .85rem; }
+.bubble-actions { display: flex; align-items: center; gap: .75rem; margin-top: .25rem; }
+.bubble-actions button.link { padding-left: 0; }
+.bubble .replies { margin-top: .5rem; }
+
+.avatar { flex: none; width: 2.3rem; height: 2.3rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; }
+.avatar.c0 { background: #e4572e; } .avatar.c1 { background: #17a2a0; } .avatar.c2 { background: #7b5ea7; } .avatar.c3 { background: #d98e04; }
+.avatar.c4 { background: #3b6df0; } .avatar.c5 { background: #2e9e5b; } .avatar.c6 { background: #c2478f; } .avatar.c7 { background: #5f6b7a; }
+
+@keyframes flash-card { from { background: var(--fresh); } }
+@media (max-width: 640px) { .bubble { width: 94%; } }
+
+/* ---- Чат-логика: «мои» сообщения ---- */
+.comment.mine { background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 8px; padding: .5rem .6rem; }
+.card-row.right .badge { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
